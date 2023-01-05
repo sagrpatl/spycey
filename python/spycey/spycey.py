@@ -4,15 +4,20 @@ import uuid
 import networkx as nx
 import PySpice.Logging.Logging as Logging
 logger = Logging.setup_logging()
-from anytree import Node, RenderTree, NodeMixin
+from anytree import Node, RenderTree, NodeMixin,LevelOrderGroupIter,PreOrderIter
+from anytree.exporter import DotExporter
 from enum import Enum
-
+import copy
+from engineering_notation import EngNumber
 
 from PySpice.Doc.ExampleTools import find_libraries
 from PySpice.Probe.Plot import plot
 from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit , SubCircuit, SubCircuitFactory
 from PySpice.Unit import *
+from . import models
+
+
 
 
 def hexID():
@@ -23,83 +28,170 @@ class NodeType(Enum):
     SINK  = "SINK"
     INPUT = "INPUT"
 
-#
-# n1 - parent connection
-# n2 - children connection
-# n3 - vout
-# n4 - iout
-# n5 - vin
-# n6 - iin
-# n7 - eff
-#
-class LDO(SubCircuit):
-    __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
-    def __init__(self, outputVoltage=1):
-        name = hexID()
-        self.type = "XFMR"
-        SubCircuit.__init__(self, name, *self.__nodes__)
-        #V('input', 'N1', 0, 10)
-        self.B("1", 0, "n1", current_expression="I(V1)")
-        self.V('1', "n2", 0, outputVoltage)
-        self.B('VO','n3', 0, voltage_expression="V(n2)")
-        self.B('IO','n4', 0, voltage_expression="I(V1)")
-        self.B('VI','n5', 0, voltage_expression="V(n1)")
-        self.B('II','n6', 0, voltage_expression="I(B1)")
-        self.B('EF','n7', 0, voltage_expression="V(n2)/V(n1)")
 
-class INPUT(SubCircuit):
-    __nodes__ = ('n1', 'n3', 'n4')
-    def __init__(self, outputVoltage=1):
-        name = hexID()
-        self.type = "INPUT"
-        SubCircuit.__init__(self, name, *self.__nodes__)
-        #V('input', 'N1', 0, 10)
-        self.V('1', "n1", 0, outputVoltage)
-        self.B('VO','n3', 0, voltage_expression="V(n1)")
-        self.B('IO','n4', 0, voltage_expression="I(V1)")
-
-class Res(SubCircuit):
-    __nodes__ = ('n1', 'n5', 'n6')
-    def __init__(self, resistance=1):
-        name = hexID()
-        self.type = "SINK"
-        SubCircuit.__init__(self, name, *self.__nodes__)
-        self.R("1", "n1", 0, resistance)
-        self.B('VI','n5', 0, voltage_expression="V(n1)")
-        self.B('II','n6', 0, voltage_expression="I(R1)")
-
-class PNODE(NodeMixin):
-    def __init__(self, name, parent=None, children=None, subcircuit=None):
-        super(PNODE, self).__init__()
+class PNode(NodeMixin):
+    def __init__(self, name, parent=None, children=None, model=None, multiplier=1, comment=""):
+        super(PNode, self).__init__()
         self.name = name
         self.id = hexID()
         self.parent = parent
+        self.VI = 0
+        self.II = 0
+        self.VO = 0
+        self.IO = 0
+        self.EF = 0
+        self.comment = comment
+        self.multiplier = multiplier
         if children:
              self.children = children
-        if subcircuit:
-            self.subcircuit = subcircuit
-            self.id = subcircuit.name
-    def circuit(self):
-        # Perform search and build up netlist
-        # Build a flat netlist or heirarchical?
-        mycir = Circuit(self.id)
-        # mycir.V(self.id, self.id, 0, 10)
-        node: PNODE
-        for pre, fill, node in RenderTree(self):
-            # print("%s%s %s" % (pre, node.name, node.id))
-            try:
-                if node.subcircuit is not None:
-                    mycir.subcircuit(node.subcircuit)
-                    if node.subcircuit.type == "XFMR":
-                        mycir.X(node.id, node.subcircuit.name, node.parent.id, node.id, "VO-" + node.id, "IO-" + node.id, "VI-" + node.id, "II-" + node.id, "EE-" + node.id)
-                    elif node.subcircuit.type == "SINK":
-                        mycir.X(node.id, node.subcircuit.name, node.parent.id, "VI-" + node.id, "II-" + node.id)
-                        # sink.minus.add_current_probe(mycir) # to get positive value
-                    elif node.subcircuit.type == "INPUT":
-                        mycir.X(node.id, node.subcircuit.name, node.id, "VO-" + node.id, "IO-" + node.id)
+        if model:
+            self.model = model
+            self.id = model.name
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            # Avoid recursion error by not copying subcircuit object
+            if(k != "model"):
+                setattr(result, k, copy.deepcopy(v, memo))
+            else:
+                # print(v)
+                setattr(result, k, v)
+        return result
+    @classmethod
+    def SMPS(cls, name, voltage, efficiency=1, parent=None, multiplier=1, comment=""):
+        return cls(name, model=models.SMPS(voltage,efficiency), parent=parent, comment=comment, multiplier=multiplier)
+    @classmethod
+    def LDO(cls, name, voltage, parent=None, multiplier=1, comment=""):
+        return cls(name, model=models.LDO(voltage), parent=parent, comment=comment, multiplier=multiplier)
+    @classmethod
+    def CP_LOAD(cls, name, power, parent=None, multiplier=1, comment=""):
+        return cls(name, model=models.CP(power), parent=parent, comment=comment, multiplier=multiplier)
+    @classmethod
+    def RES(cls, name, resistance, parent=None, multiplier=1, comment=""):
+        return cls(name, model=models.Res(resistance), parent=parent, comment=comment, multiplier=multiplier)
 
-                    # print(node.subcircuit)
-            except:
-                pass
-        return mycir
+def _Netlist(node):
+    # Build up netlist
+    # Build a flat netlist or heirarchical?
+    mycir = Circuit(node.id)
+    node: PNode
 
+    # expand netlist for multipleir values
+    nodeTemp = copy.deepcopy(node)
+    def nodenamefunc(node): 
+        # return "%s %s" % (node.name,node.id)
+        return "%s" % (node.id)
+    DotExporter(nodeTemp,  graph="digraph", nodenamefunc=nodenamefunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"]).to_picture("testing2.png")
+    for pre, fill, node in RenderTree(nodeTemp):
+        # print("%s%s %s" % (pre, node.name, node.id))
+        # print(type(node.subcircuit))
+        try:
+            if node.model is not None:
+                # Catch duplicate subcircuits
+                try:
+                    mycir.subcircuit(node.model)
+                except:
+                    pass
+                if(node.multiplier > 1):
+                    mid = hexID()
+                    subcon = hexID()
+                    multi = models.Multiplier(node.multiplier)
+                    mycir.subcircuit(multi)
+                    mycir.X(mid, multi.name, node.parent.id, subcon)
+                    pass
+                else:
+                    try:
+                        subcon = node.parent.id
+                    except:
+                        pass
+                if node.model.type == "XFMR":
+                    mycir.X(node.id, node.model.name, subcon, node.id, "VO-" + node.id, "IO-" + node.id, "VI-" + node.id, "II-" + node.id, "EF-" + node.id)
+                elif node.model.type == "SINK":
+                    mycir.X(node.id, node.model.name, subcon, "VI-" + node.id, "II-" + node.id)
+                elif node.model.type == "HEAD":
+                    mycir.X(node.id, node.model.name, node.id, "VO-" + node.id, "IO-" + node.id)
+        except Exception as e:
+            print(e)
+            print(node.name)
+            # print(type(node.subcircuit))
+            print("Couldn't find subcircuit model :(")
+            pass
+    return mycir
+
+def Solve(node):
+    cir = _Netlist(node)
+    simulator = cir.simulator()
+    output = simulator.operating_point()
+    # back anno parameters to tree from dc op simulation
+    for pre, fill, node in RenderTree(node):
+        try:
+            node.IO = float(output["io-" + node.id])
+            node.VO = float(output["vo-" + node.id]) 
+            node.II = float(output["ii-" + node.id]) 
+            node.VI = float(output["vi-" + node.id]) 
+            node.EF = float(output["ef-" + node.id])
+        except:
+            pass
+        try:
+            if(node.model.type == "SINK"):
+                node.II = float(output["ii-" + node.id]) 
+                node.VI = float(output["vi-" + node.id]) 
+        except:
+            pass
+        try:
+            if(node.model.type == "HEAD"):
+                node.IO = float(output["io-" + node.id]) 
+                node.VO = float(output["vo-" + node.id])
+        except:
+            pass
+
+def nodeattrfunc(node: PNode):
+    style = "fixedsize=false; width=2.25;"
+    if node.multiplier > 1:
+        style += "shape=box3d;"
+    else:
+        style += "shape=box;"
+    if node.model.type == "XFMR":
+        style += "fillcolor=lightpink; style=filled"
+    elif node.model.type in ["HEAD"]:
+        style += "fillcolor=lightpink; style=filled"
+    elif node.model.type == "SINK":
+        style += "fillcolor=plum; style=filled"
+    return style
+
+def nodenamefunc(node): 
+    output = ""
+    output += "%s" % node.name
+    if(node.multiplier > 1):
+        output += " [x%d]" % node.multiplier
+    if(node.model.type == "XFMR"):
+        V = node.VO
+        I = node.IO 
+        P = V * I
+        L = P  / node.EF * (1 - node.EF)
+        output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+        output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
+    elif(node.model.type == "SINK"):
+        V = node.VI
+        I = node.II 
+        P = V * I
+        output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+    elif(node.model.type == "HEAD"):
+        V = node.VO
+        I = node.IO 
+        P = V * I
+        output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+    # else:
+        # output += "%s" % (node.name)
+    return output
+def edgeattrfunc(node, child):
+    if child.multiplier > 1:
+        return 'label="%sA [x%d]"' % (EngNumber(child.II), child.multiplier)
+    
+    return 'label="%sA"' % (EngNumber(child.II))
+
+class PowerDotExporter(DotExporter):
+    def __init__(self, node):
+        super(PowerDotExporter, self).__init__(node,  graph="digraph",nodenamefunc=nodenamefunc, nodeattrfunc=nodeattrfunc, edgeattrfunc=edgeattrfunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"])
