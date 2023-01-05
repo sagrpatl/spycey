@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import uuid
 import networkx as nx
 import PySpice.Logging.Logging as Logging
+# logger = Logging.setup_logging(logging_level='WARNING')
 logger = Logging.setup_logging()
 from anytree import Node, RenderTree, NodeMixin,LevelOrderGroupIter,PreOrderIter
 from anytree.exporter import DotExporter
@@ -59,6 +60,12 @@ class PNode(NodeMixin):
                 # print(v)
                 setattr(result, k, v)
         return result
+    def setParent(self, parent):
+        self.parent = parent
+        return self
+    def setMultiplier(self, multiplier):
+        self.multiplier = multiplier
+        return self
     @classmethod
     def SMPS(cls, name, voltage, efficiency=1, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.SMPS(voltage,efficiency), parent=parent, comment=comment, multiplier=multiplier)
@@ -71,6 +78,12 @@ class PNode(NodeMixin):
     @classmethod
     def RES(cls, name, resistance, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.Res(resistance), parent=parent, comment=comment, multiplier=multiplier)
+    @classmethod
+    def IN_DC(cls, name, voltage, parent=None, comment=""):
+        return cls(name, model=models.INPUT(voltage), parent=parent, comment=comment)
+    @classmethod
+    def UNREG(cls, name, ratio, efficiency=1, parent=None, comment=""):
+        return cls(name, model=models.UNREG(ratio, efficiency), parent=parent, comment=comment)
 
 def _Netlist(node):
     # Build up netlist
@@ -118,34 +131,45 @@ def _Netlist(node):
             # print(type(node.subcircuit))
             print("Couldn't find subcircuit model :(")
             pass
+    # print(mycir)
     return mycir
 
 def Solve(node):
     cir = _Netlist(node)
+    print(cir)
     simulator = cir.simulator()
     output = simulator.operating_point()
     # back anno parameters to tree from dc op simulation
     for pre, fill, node in RenderTree(node):
-        try:
-            node.IO = float(output["io-" + node.id])
-            node.VO = float(output["vo-" + node.id]) 
-            node.II = float(output["ii-" + node.id]) 
-            node.VI = float(output["vi-" + node.id]) 
-            node.EF = float(output["ef-" + node.id])
-        except:
-            pass
+        if(node.model.type == "XFMR"):
+            try:
+                node.IO = float(output["io-" + node.id])
+                node.VO = float(output["vo-" + node.id]) 
+                node.II = float(output["ii-" + node.id]) 
+                node.VI = float(output["vi-" + node.id]) 
+                node.EF = float(output["ef-" + node.id])
+                
+            except Exception as e:
+                print(e)
+                print("Couldn't find parameter")
+                pass
         try:
             if(node.model.type == "SINK"):
                 node.II = float(output["ii-" + node.id]) 
                 node.VI = float(output["vi-" + node.id]) 
-        except:
-            pass
+        except Exception as e:
+                print(e)
+                print("Couldn't find parameter")
+                pass
         try:
             if(node.model.type == "HEAD"):
                 node.IO = float(output["io-" + node.id]) 
                 node.VO = float(output["vo-" + node.id])
-        except:
-            pass
+        except Exception as e:
+                print(e)
+                print("Couldn't find parameter")
+                pass
+    return output
 
 def nodeattrfunc(node: PNode):
     style = "fixedsize=false; width=2.25;"
