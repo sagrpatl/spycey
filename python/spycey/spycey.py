@@ -59,6 +59,12 @@ class PNode(NodeMixin):
                 # print(v)
                 setattr(result, k, v)
         return result
+    def setParent(self, parent):
+        self.parent = parent
+        return self
+    def setMultiplier(self, multiplier):
+        self.multiplier = multiplier
+        return self
     @classmethod
     def SMPS(cls, name, voltage, efficiency=1, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.SMPS(voltage,efficiency), parent=parent, comment=comment, multiplier=multiplier)
@@ -71,6 +77,12 @@ class PNode(NodeMixin):
     @classmethod
     def RES(cls, name, resistance, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.Res(resistance), parent=parent, comment=comment, multiplier=multiplier)
+    @classmethod
+    def IN_DC(cls, name, voltage, parent=None, comment=""):
+        return cls(name, model=models.INPUT(voltage), parent=parent, comment=comment)
+    @classmethod
+    def UNREG(cls, name, ratio, efficiency=1, parent=None, comment=""):
+        return cls(name, model=models.UNREG(ratio, efficiency), parent=parent, comment=comment)
 
 def _Netlist(node):
     # Build up netlist
@@ -118,6 +130,7 @@ def _Netlist(node):
             # print(type(node.subcircuit))
             print("Couldn't find subcircuit model :(")
             pass
+    # print(mycir)
     return mycir
 
 def Solve(node):
