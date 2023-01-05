@@ -112,6 +112,7 @@ class CP(SubCircuit):
         name = hexID()
         self.type = "SINK"
         self.label = "Constant Power"
+        self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.B("1", "n1", 0, current_expression=f"{power}/V(n1)")
         # self.R("n1", "n11", 0, 1e-6)
