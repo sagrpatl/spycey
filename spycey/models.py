@@ -12,12 +12,12 @@ class LDO(SubCircuit):
         self.type = "XFMR"
         self.label = "LDO"
         SubCircuit.__init__(self, name, *self.__nodes__)
-        self.B("1",  0, "n1", current_expression="I(V1)")
+        self.B("1",  "n1", 0, current_expression="-I(V1)")
         self.V('1', "n2", 0, outputVoltage)
         self.B('VO','n3', 0, voltage_expression="V(n2)")
         self.B('IO','n4', 0, voltage_expression="-I(V1)")
         self.B('VI','n5', 0, voltage_expression="V(n1)")
-        self.B('II','n6', 0, voltage_expression="-I(B1)")
+        self.B('II','n6', 0, voltage_expression="I(B1)")
         self.B('EF','n7', 0, voltage_expression="V(n2)/V(n1)")
 
 class Multiplier(SubCircuit):
@@ -78,7 +78,7 @@ class UNREG(SubCircuit):
         # self.V('3', 'n22', 'n2', 0)
         # self.R('3', "n22", "n2", 0) # help with convergence (otherwise singular matrix)
         self.B('VO','n3', 0, voltage_expression="V(n2)")
-        self.B('IO','n4', 0, voltage_expression="I(B3)")
+        self.B('IO','n4', 0, voltage_expression="-I(B3)")
         self.B('VI','n5', 0, voltage_expression="V(n1)")
         self.B('II','n6', 0, voltage_expression="I(V2)")
         # self.B('II','n6', 0, voltage_expression="10")
@@ -115,6 +115,19 @@ class CP(SubCircuit):
         self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.B("1", "n1", 0, current_expression=f"{power}/V(n1)")
+        # self.R("n1", "n11", 0, 1e-6)
+        self.B('VI','n5', 0, voltage_expression="V(n1)")
+        self.B('II','n6', 0, voltage_expression="I(B1)")
+
+class CC(SubCircuit):
+    __nodes__ = ('n1', 'n5', 'n6')
+    def __init__(self, current=1):
+        name = hexID()
+        self.type = "SINK"
+        self.label = "Constant Power"
+        self.label = "Constant Power"
+        SubCircuit.__init__(self, name, *self.__nodes__)
+        self.B("1", "n1", 0, current_expression=f"{current}")
         # self.R("n1", "n11", 0, 1e-6)
         self.B('VI','n5', 0, voltage_expression="V(n1)")
         self.B('II','n6', 0, voltage_expression="I(B1)")

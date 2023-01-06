@@ -16,7 +16,8 @@ from PySpice.Probe.Plot import plot
 from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit , SubCircuit, SubCircuitFactory
 from PySpice.Unit import *
-from . import models
+# from . import models
+import models
 
 
 
@@ -76,6 +77,9 @@ class PNode(NodeMixin):
     def CP_LOAD(cls, name, power, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.CP(power), parent=parent, comment=comment, multiplier=multiplier)
     @classmethod
+    def CC_LOAD(cls, name, current, parent=None, multiplier=1, comment=""):
+        return cls(name, model=models.CC(current), parent=parent, comment=comment, multiplier=multiplier)    
+    @classmethod
     def RES(cls, name, resistance, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.Res(resistance), parent=parent, comment=comment, multiplier=multiplier)
     @classmethod
@@ -84,6 +88,16 @@ class PNode(NodeMixin):
     @classmethod
     def UNREG(cls, name, ratio, efficiency=1, parent=None, comment=""):
         return cls(name, model=models.UNREG(ratio, efficiency), parent=parent, comment=comment)
+    def Power(self):
+        return self.VO * self.IO
+    def PowerIn(self):
+        return self.VI * self. II
+    def Loss(self):
+        return (self.VI * self.II) * (1 - self.EF)
+    def Voltage(self):
+        return self.VO
+    def Current(self):
+        return self.IO
 
 def _Netlist(node):
     # Build up netlist
@@ -136,7 +150,7 @@ def _Netlist(node):
 
 def Solve(node):
     cir = _Netlist(node)
-    print(cir)
+    # print(cir)
     simulator = cir.simulator()
     output = simulator.operating_point()
     # back anno parameters to tree from dc op simulation
