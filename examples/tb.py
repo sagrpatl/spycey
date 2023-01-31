@@ -1,6 +1,6 @@
 import sys
 sys.path.append("../spycey")
-print(sys.path)
+# print(sys.path)
 
 from spycey import *
 import models
@@ -31,4 +31,5 @@ def tree(n):
     # n11 = PNode.RES("loadd", 1).setParent(n7) # 48V
     return top
 
-tree(3)
+a = tree(3)
+print(a)

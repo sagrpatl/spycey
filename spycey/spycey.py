@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import uuid
-import networkx as nx
 import PySpice.Logging.Logging as Logging
 # logger = Logging.setup_logging(logging_level='WARNING')
 logger = Logging.setup_logging()
