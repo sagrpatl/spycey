@@ -2,36 +2,17 @@
 sidebar_position: 1
 ---
 
-# Equations
+# Getting Started
 
-## Losses
+## Installation
+spycey can be installed with pip
+```bash
+pip install git+<add URL>
+```
 
-Loss calculations
+## Overview
 
-$$
-P_{out} = V_{out} * I_{out}
-$$
+The **spycey** module allows building modular power trees. It uses ngspice to calculate the DC operating point. Basic spice models are included and custom models can be integrated. The [**anytree**](https://github.com/c0fec0de/anytree) module is used to build a tree structures and methods are available to build a netlist for analysis.
 
-
-$$
-P_{loss} = P_{out}/\eta*(1-\eta)
-$$
-$$
-P_{in} = P_{out}/\eta
-$$
-
-## LDO
-
-$$
-I_{in} = I_{out}
-$$
-$$
-\eta = V_{out}/V_{in}
-$$
-
-## SMPS
-$$
-I_{in} = I_{out} * (V_{out}/V_{in})
-$$
 
 

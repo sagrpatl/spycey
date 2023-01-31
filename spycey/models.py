@@ -49,7 +49,7 @@ class SMPS(SubCircuit):
         self.label = "SMPS"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.V("2", "n1", "n11", 0)
-        self.B("1", 0, "n11", current_expression="I(V1) * V(n2)/V(n1)")
+        self.B("1", "n11", 0, current_expression="-I(V1) * V(n2)/V(n1)")
         self.B("2", "n11", 0, current_expression=f"( V(n2) * -I(V1) * (1-{efficiency}) ) / {efficiency} / V(n11)")
         self.V('1', "n2", 0, outputVoltage)
         self.B('VO','n3', 0, voltage_expression="V(n2)")
