@@ -1,19 +1,19 @@
-import numpy as np
-import matplotlib.pyplot as plt
+# import numpy as np
+# import matplotlib.pyplot as plt
 import uuid
 import PySpice.Logging.Logging as Logging
 # logger = Logging.setup_logging(logging_level='WARNING')
 logger = Logging.setup_logging()
-from anytree import Node, RenderTree, NodeMixin,LevelOrderGroupIter,PreOrderIter
+from anytree import RenderTree, NodeMixin
 from anytree.exporter import DotExporter
 from enum import Enum
 import copy
 from engineering_notation import EngNumber
 
-from PySpice.Doc.ExampleTools import find_libraries
-from PySpice.Probe.Plot import plot
-from PySpice.Spice.Library import SpiceLibrary
-from PySpice.Spice.Netlist import Circuit , SubCircuit, SubCircuitFactory
+# from PySpice.Doc.ExampleTools import find_libraries
+# from PySpice.Probe.Plot import plot
+# from PySpice.Spice.Library import SpiceLibrary
+from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import *
 # from . import models
 import models
@@ -104,12 +104,12 @@ def _Netlist(node):
     mycir = Circuit(node.id)
     node: PNode
 
-    # expand netlist for multipleir values
+    # expand netlist for multiplier values
     nodeTemp = copy.deepcopy(node)
-    def nodenamefunc(node): 
+    # def nodenamefunc(node): 
         # return "%s %s" % (node.name,node.id)
-        return "%s" % (node.id)
-    DotExporter(nodeTemp,  graph="digraph", nodenamefunc=nodenamefunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"]).to_picture("testing2.png")
+        # return "%s" % (node.id)
+    # DotExporter(nodeTemp,  graph="digraph", nodenamefunc=nodenamefunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"]).to_picture("testing2.png")
     for pre, fill, node in RenderTree(nodeTemp):
         # print("%s%s %s" % (pre, node.name, node.id))
         # print(type(node.subcircuit))
