@@ -11,8 +11,8 @@ const katex = require("rehype-katex")
 const config = {
   title: "spycey",
   tagline: "SPICE based power budgeting tool",
-  url: "https://your-docusaurus-test-site.com",
-  baseUrl: "/",
+  url: "https://sagrpatl.github.io",
+  baseUrl: "/spycey/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
