@@ -1,6 +1,5 @@
 import sys
 sys.path.append("../spycey")
-# print(sys.path)
 
 from spycey import *
 import models

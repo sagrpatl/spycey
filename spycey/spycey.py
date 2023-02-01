@@ -39,12 +39,11 @@ from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 # from . import models
 import models
+from helper import hexID
 
 
 
 
-def hexID():
-    return "N" + uuid.uuid4().hex
 
 class NodeType(Enum):
     XFMR  = "XFMR"
@@ -119,6 +118,8 @@ class PNode(NodeMixin):
         return self.VO
     def Current(self):
         return self.IO
+    def Netlist(self):
+        return _Netlist(self)
 
 def _Netlist(node):
     # Build up netlist
