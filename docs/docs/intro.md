@@ -8,7 +8,7 @@ slug: /
 ## Installation
 spycey can be installed with pip
 ```bash
-pip install git+<add URL>
+pip install git+https://github.com/sagrpatl/spycey.git
 ```
 
 ## Overview
