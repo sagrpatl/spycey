@@ -1,13 +1,13 @@
 from PySpice.Spice.Netlist import SubCircuit
 # import uuid
 from engineering_notation import EngNumber
-from helper import hexID
+from helper import hexID, NodeType
 
 class LDO(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self, outputVoltage=1):
         name = "LDO_%sV_" % outputVoltage + hexID()
-        self.type = "XFMR"
+        self.type = NodeType.XFMR
         self.label = "LDO"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.B("1",  "n1", 0, current_expression="-I(V1)")
@@ -23,7 +23,7 @@ class Multiplier(SubCircuit):
     def __init__(self, multiplier=1):
         name = "MULTI_%sX_" % multiplier + hexID()
         # name = hexID()
-        self.type = "XFMR"
+        self.type = NodeType.XFMR
         self.label = "Multiplier"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.B("1", 0, "n1", current_expression=f"I(B2) * {multiplier}")
@@ -45,7 +45,7 @@ class SMPS(SubCircuit):
     def __init__(self, outputVoltage=1, efficiency=1):
         # name = hexID()
         name = "SMPS_%sV_" % outputVoltage + hexID()
-        self.type = "XFMR"
+        self.type = NodeType.XFMR
         self.label = "SMPS"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.V("2", "n1", "n11", 0)
@@ -62,7 +62,7 @@ class UNREG(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self, ratio=1, efficiency=1):
         name = "UNREG_%sN_" % ratio + hexID()
-        self.type = "XFMR"
+        self.type = NodeType.XFMR
         self.label = "Unregulated %d:1" % (ratio)
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.V("2", "n1", "n11", 0)
@@ -80,7 +80,7 @@ class INPUT(SubCircuit):
     def __init__(self, outputVoltage=1):
         name = hexID()
         name = "INPUT_%sV_" % outputVoltage + hexID()
-        self.type = "HEAD"
+        self.type = NodeType.INPUT
         self.label = "Input"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.V('1', "n1", 0, outputVoltage)
@@ -92,7 +92,7 @@ class Res(SubCircuit):
     def __init__(self, resistance=1):
         # name = hexID()
         name = "RES_%sOHM_" % resistance + hexID()
-        self.type = "SINK"
+        self.type = NodeType.SINK
         self.label = "Resistor %sΩ" % (EngNumber(resistance))
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.R("1", "n1", 0, resistance)
@@ -103,7 +103,7 @@ class CP(SubCircuit):
     __nodes__ = ('n1', 'n5', 'n6')
     def __init__(self, power=1):
         name = "LOAD_CP_%sW_" % power + hexID()
-        self.type = "SINK"
+        self.type = NodeType.SINK
         self.label = "Constant Power"
         self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -116,7 +116,7 @@ class CC(SubCircuit):
     def __init__(self, current=1):
         name = hexID()
         name = "LOAD_CC_%sA_" % current + hexID()
-        self.type = "SINK"
+        self.type = NodeType.SINK
         self.label = "Constant Power"
         self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -128,7 +128,7 @@ class CCVS(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self):
         name = hexID()
-        self.type = "XFMR"
+        self.type = NodeType.XFMR
         self.label = "CCVS Example"
         SubCircuit.__init__(self, name, *self.__nodes__)
         efficiency = 1

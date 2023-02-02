@@ -2,7 +2,7 @@ import sys
 sys.path.append("../spycey")
 print(sys.path)
 
-from spycey import *
+from powertree import *
 
 
 def inRange(inputVal, val, tol=0.01):
@@ -55,7 +55,7 @@ def test_complexTree():
 	CCL13 = PNode.CC_LOAD("CC-LOAD13", 100).setParent(IMB3)
 	
 	# PowerDotExporter(VIN, prune=False).to_picture("myTree2.png")
-	Solve(VIN)
+	VIN.Solve()
 	PowerDotExporter(VIN).to_picture("complex_tree.png")
 	print(VIN.Netlist())
 

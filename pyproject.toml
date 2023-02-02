@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spycey"
+version = "0.0.1"
+authors = [
+  { name="Sagar Patel" },
+]
+description = "Tree based power budgeting with SPICE backend"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pyspice", "anytree", "engineering_notation"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/sagrpatl/spycey"

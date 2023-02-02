@@ -39,16 +39,13 @@ from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 # from . import models
 import models
-from helper import hexID
+from helper import hexID, NodeType
 
 
 
 
 
-class NodeType(Enum):
-    XFMR  = "XFMR"
-    SINK  = "SINK"
-    INPUT = "INPUT"
+
 
 
 class PNode(NodeMixin):
@@ -120,6 +117,8 @@ class PNode(NodeMixin):
         return self.IO
     def Netlist(self):
         return _Netlist(self)
+    def Solve(self):
+        return _Solve(self)
 
 def _Netlist(node):
     # Build up netlist
@@ -155,11 +154,11 @@ def _Netlist(node):
                         subcon = node.parent.id
                     except:
                         pass
-                if node.model.type == "XFMR":
+                if node.model.type == NodeType.XFMR:
                     mycir.X(node.id, node.model.name, subcon, node.id, "VO-" + node.id, "IO-" + node.id, "VI-" + node.id, "II-" + node.id, "EF-" + node.id)
-                elif node.model.type == "SINK":
+                elif node.model.type == NodeType.SINK:
                     mycir.X(node.id, node.model.name, subcon, "VI-" + node.id, "II-" + node.id)
-                elif node.model.type == "HEAD":
+                elif node.model.type == NodeType.INPUT:
                     mycir.X(node.id, node.model.name, node.id, "VO-" + node.id, "IO-" + node.id)
         except Exception as e:
             print(e)
@@ -170,14 +169,14 @@ def _Netlist(node):
     # print(mycir)
     return mycir
 
-def Solve(node):
+def _Solve(node):
     cir = _Netlist(node)
     # print(cir)
     simulator = cir.simulator()
     output = simulator.operating_point()
     # back anno parameters to tree from dc op simulation
     for pre, fill, node in RenderTree(node):
-        if(node.model.type == "XFMR"):
+        if(node.model.type == NodeType.XFMR):
             try:
                 node.IO = float(output["io-" + node.id])
                 node.VO = float(output["vo-" + node.id]) 
@@ -190,7 +189,7 @@ def Solve(node):
                 print("Couldn't find parameter")
                 pass
         try:
-            if(node.model.type == "SINK"):
+            if(node.model.type == NodeType.SINK):
                 node.II = float(output["ii-" + node.id]) 
                 node.VI = float(output["vi-" + node.id]) 
         except Exception as e:
@@ -198,7 +197,7 @@ def Solve(node):
                 print("Couldn't find parameter")
                 pass
         try:
-            if(node.model.type == "HEAD"):
+            if(node.model.type == NodeType.INPUT):
                 node.IO = float(output["io-" + node.id]) 
                 node.VO = float(output["vo-" + node.id])
         except Exception as e:
@@ -226,19 +225,19 @@ def nodenamefunc(node):
     output += "%s" % node.name
     if(node.multiplier > 1):
         output += " [x%d]" % node.multiplier
-    if(node.model.type == "XFMR"):
+    if(node.model.type == NodeType.XFMR):
         V = node.VO
         I = node.IO 
         P = V * I
         L = P  / node.EF * (1 - node.EF)
         output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
         output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
-    elif(node.model.type == "SINK"):
+    elif(node.model.type == NodeType.SINK):
         V = node.VI
         I = node.II 
         P = V * I
         output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
-    elif(node.model.type == "HEAD"):
+    elif(node.model.type == NodeType.INPUT):
         V = node.VO
         I = node.IO 
         P = V * I
