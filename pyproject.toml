@@ -16,7 +16,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "pyspice", "anytree", "engineering_notation"
+    "pyspice", "anytree", "engineering_notation", "shortuuid"
 ]
 
 [project.urls]
