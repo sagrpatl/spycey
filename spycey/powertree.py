@@ -1,25 +1,3 @@
-# MIT License
-
-# Copyright (c) 2023 Sagar Patel
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
 # import numpy as np
 # import matplotlib.pyplot as plt
 import uuid
@@ -32,20 +10,10 @@ from enum import Enum
 import copy
 from engineering_notation import EngNumber
 
-# from PySpice.Doc.ExampleTools import find_libraries
-# from PySpice.Probe.Plot import plot
-# from PySpice.Spice.Library import SpiceLibrary
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import *
-# from . import models
-import models
-from helper import hexID, NodeType
-
-
-
-
-
-
+from . import models
+from .helper import *
 
 
 class PNode(NodeMixin):
@@ -75,7 +43,6 @@ class PNode(NodeMixin):
             if(k != "model"):
                 setattr(result, k, copy.deepcopy(v, memo))
             else:
-                # print(v)
                 setattr(result, k, v)
         return result
     def setParent(self, parent):
@@ -122,7 +89,6 @@ class PNode(NodeMixin):
 
 def _Netlist(node):
     # Build up netlist
-    # Build a flat netlist or heirarchical?
     mycir = Circuit(node.id)
     node: PNode
 

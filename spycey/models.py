@@ -1,7 +1,6 @@
 from PySpice.Spice.Netlist import SubCircuit
-# import uuid
 from engineering_notation import EngNumber
-from helper import hexID, NodeType
+from .helper import *
 
 class LDO(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
@@ -105,7 +104,6 @@ class CP(SubCircuit):
         name = "LOAD_CP_%sW_" % power + hexID()
         self.type = NodeType.SINK
         self.label = "Constant Power"
-        self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.B("1", "n1", 0, current_expression=f"{power}/V(n1)")
         self.B('VI','n5', 0, voltage_expression="V(n1)")
@@ -117,7 +115,6 @@ class CC(SubCircuit):
         name = hexID()
         name = "LOAD_CC_%sA_" % current + hexID()
         self.type = NodeType.SINK
-        self.label = "Constant Power"
         self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.B("1", "n1", 0, current_expression=f"{current}")
