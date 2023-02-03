@@ -1,8 +1,7 @@
 import sys
-sys.path.append("../spycey")
-print(sys.path)
+sys.path.append("../")
 
-from powertree import *
+from spycey.powertree import PNode, PowerDotExporter
 
 
 def inRange(inputVal, val, tol=0.01):

@@ -8,3 +8,4 @@ class NodeType(Enum):
     XFMR  = "XFMR"
     SINK  = "SINK"
     INPUT = "INPUT"
+    MODULE = "MODULE"

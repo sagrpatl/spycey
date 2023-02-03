@@ -14,10 +14,11 @@ from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 from . import models
 from .helper import *
+from typing import Type
 
 
 class PNode(NodeMixin):
-    def __init__(self, name, parent=None, children=None, model=None, multiplier=1, comment=""):
+    def __init__(self, name, parent=None, children=None, model=None, multiplier=1, comment="", hideChildren=False, isModule=False):
         super(PNode, self).__init__()
         self.name = name
         self.id = hexID()
@@ -29,6 +30,7 @@ class PNode(NodeMixin):
         self.EF = 0
         self.comment = comment
         self.multiplier = multiplier
+        self.isModule = isModule
         if children:
              self.children = children
         if model:
@@ -72,6 +74,11 @@ class PNode(NodeMixin):
     @classmethod
     def UNREG(cls, name, ratio, efficiency=1, parent=None, comment=""):
         return cls(name, model=models.UNREG(ratio, efficiency), parent=parent, comment=comment)
+    @classmethod
+    def MODULE(cls, name, multiplier=1, comment="", parent=None):
+        return cls(name, parent=parent, multiplier=multiplier, comment=comment, isModule=True)
+    # def toModule(self, name, comment=None, multiplier=1, parent=None, hideChildren=True):
+    #     module = PNode()
     def Power(self):
         return self.VO * self.IO
     def PowerIn(self):
@@ -178,12 +185,12 @@ def nodeattrfunc(node: PNode):
         style += "shape=box3d;"
     else:
         style += "shape=box;"
-    if node.model.type == "XFMR":
-        style += "fillcolor=lightpink; style=filled"
-    elif node.model.type in ["HEAD"]:
-        style += "fillcolor=lightpink; style=filled"
-    elif node.model.type == "SINK":
-        style += "fillcolor=plum; style=filled"
+    # if node.model.type == "XFMR":
+    #     style += "fillcolor=lightpink; style=filled"
+    # elif node.model.type in ["HEAD"]:
+    #     style += "fillcolor=lightpink; style=filled"
+    # elif node.model.type == "SINK":
+    #     style += "fillcolor=plum; style=filled"
     return style
 
 def nodenamefunc(node): 
