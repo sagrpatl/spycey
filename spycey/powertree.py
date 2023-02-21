@@ -14,8 +14,9 @@ from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
 from . import models
 from .helper import *
-from typing import Type
-
+from typing import Type, Iterable
+import inspect
+from functools import partial
 
 class PNode(NodeMixin):
     def __init__(self, name, parent=None, children=None, model=None, multiplier=1, comment="", hideChildren=False, isModule=False):
@@ -31,6 +32,7 @@ class PNode(NodeMixin):
         self.comment = comment
         self.multiplier = multiplier
         self.isModule = isModule
+        self.hideChildren=hideChildren
         if children:
              self.children = children
         if model:
@@ -77,8 +79,17 @@ class PNode(NodeMixin):
     @classmethod
     def MODULE(cls, name, multiplier=1, comment="", parent=None):
         return cls(name, parent=parent, multiplier=multiplier, comment=comment, isModule=True)
-    # def toModule(self, name, comment=None, multiplier=1, parent=None, hideChildren=True):
-    #     module = PNode()
+    def toModule(self, name, parent=None, comment="", multipler=1, hideChildren=True):
+        self.isModule = True
+        self.multiplier = multipler
+        self.hideChildren=hideChildren
+        if comment == "":
+            if(self.injectedName is not None):
+                # self.comment =  self.injectedName
+                self.comment = self.injectedName
+        self.name = name
+        self.parent=parent
+        return self
     def Power(self):
         return self.VO * self.IO
     def PowerIn(self):
@@ -105,6 +116,7 @@ def _Netlist(node):
         # return "%s %s" % (node.name,node.id)
         # return "%s" % (node.id)
     # DotExporter(nodeTemp,  graph="digraph", nodenamefunc=nodenamefunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"]).to_picture("testing2.png")
+
     for pre, fill, node in RenderTree(nodeTemp):
         # print("%s%s %s" % (pre, node.name, node.id))
         # print(type(node.subcircuit))
@@ -142,13 +154,21 @@ def _Netlist(node):
     # print(mycir)
     return mycir
 
-def _Solve(node):
+def _Solve(node : PNode):
+        # Bypass any IN_DC with a parent
+    for pre, fill, inode in RenderTree(node):
+        if inode.model.type == NodeType.INPUT:
+            if inode.parent is not None:
+                # print("found a node to bypass", inode.name, inode.parent)
+                inode.model = models.PT()
     cir = _Netlist(node)
     # print(cir)
     simulator = cir.simulator()
     output = simulator.operating_point()
     # back anno parameters to tree from dc op simulation
     for pre, fill, node in RenderTree(node):
+        # Hides children, Note: if solver is run again results will be incorrect because children are orphaned
+        
         if(node.model.type == NodeType.XFMR):
             try:
                 node.IO = float(output["io-" + node.id])
@@ -185,12 +205,6 @@ def nodeattrfunc(node: PNode):
         style += "shape=box3d;"
     else:
         style += "shape=box;"
-    # if node.model.type == "XFMR":
-    #     style += "fillcolor=lightpink; style=filled"
-    # elif node.model.type in ["HEAD"]:
-    #     style += "fillcolor=lightpink; style=filled"
-    # elif node.model.type == "SINK":
-    #     style += "fillcolor=plum; style=filled"
     return style
 
 def nodenamefunc(node): 
@@ -198,25 +212,37 @@ def nodenamefunc(node):
     output += "%s" % node.name
     if(node.multiplier > 1):
         output += " [x%d]" % node.multiplier
-    if(node.model.type == NodeType.XFMR):
+        
+    
+    if(node.isModule):
         V = node.VO
         I = node.IO 
         P = V * I
         L = P  / node.EF * (1 - node.EF)
         output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
-        output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
-    elif(node.model.type == NodeType.SINK):
-        V = node.VI
-        I = node.II 
-        P = V * I
-        output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
-    elif(node.model.type == NodeType.INPUT):
-        V = node.VO
-        I = node.IO 
-        P = V * I
-        output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
-    # else:
-        # output += "%s" % (node.name)
+        # output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
+    else:
+        if(node.model.type == NodeType.XFMR):
+            V = node.VO
+            I = node.IO 
+            P = V * I
+            L = P  / node.EF * (1 - node.EF)
+            output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+            output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
+        elif(node.model.type == NodeType.SINK):
+            V = node.VI
+            I = node.II 
+            P = V * I
+            output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+        elif(node.model.type == NodeType.INPUT):
+            V = node.VO
+            I = node.IO 
+            P = V * I
+            output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+        # else:
+            # output += "%s" % (node.name)
+    if(node.comment != ""):
+        output += "\n%s" % node.comment
     return output
 def edgeattrfunc(node, child):
     if child.multiplier > 1:
@@ -225,5 +251,122 @@ def edgeattrfunc(node, child):
     return 'label="%sA"' % (EngNumber(child.II))
 
 class PowerDotExporter(DotExporter):
+    
     def __init__(self, node):
-        super(PowerDotExporter, self).__init__(node,  graph="digraph",nodenamefunc=nodenamefunc, nodeattrfunc=nodeattrfunc, edgeattrfunc=edgeattrfunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"])
+        # Copy tree to perform any destructive actions (ex. pruning)
+        _node = copy.deepcopy(node)
+        __node : PNode
+        for pre, fill, __node in RenderTree(_node):
+            if __node.hideChildren:
+                __node.children = []
+
+        super(PowerDotExporter, self).__init__(_node,  graph="digraph",nodenamefunc=nodenamefunc, nodeattrfunc=nodeattrfunc, edgeattrfunc=edgeattrfunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"])
+
+def tagPState(input):
+    def setPState(func):
+        def wrapper(*args, **kwargs):
+            # Check kwargs for any matches in input
+            # Override matching attributes in input with kwargs 
+            # Strip kwargs of matching keys with input
+            undo = {}
+            unionAttrs = set(dir(input)).intersection(set(kwargs.keys()))
+            for key in unionAttrs:
+                # Type check between kwargs and input
+                if( type(kwargs[key]) == type(getattr(input,key))):
+                    undo[key] = getattr(input,key)
+                    setattr(input, key, kwargs[key])
+                else:
+                    raise TypeError("Type mismatch for injected parameter %s. Got %s, but was expecting %s" % (key, type(kwargs[key]), type(getattr(input,key))))
+                del kwargs[key]
+            result = func(*args, **kwargs)
+            # Restore cls object
+            for k,v in undo.items():
+                setattr(input,k, v)
+            if not isinstance(result, PNode):
+                # Raise exception if return value is not PowerTreeNode
+                raise TypeError("Return value of PowerTreeHook is not PNode. Please check function.")
+            result.injectedName = input.name
+            return result
+        return wrapper
+    return setPState
+
+class PState:
+    def __init__(self, name,**kwargs):
+        self.__name = name
+        self.__dict__.update(kwargs)
+    def __str__(self):
+        return self.__name
+    def __eq__(self, other):
+        return self.name == other.name
+    @property
+    def name(self):
+        return self.__name
+    def __repr__(self): 
+        return "PowerState(%s)" % self.name
+    def __call__(self, *args, **kwargs) -> PNode:
+        return self.callback(*args, **kwargs)
+    def callback(self, *args, **kwargs):
+        pass
+
+class DeviceMeta(type):
+    def __new__(mcs, name, bases, attrs):
+        if name == "PowerTreeDevice":
+            return super().__new__(mcs, name, bases, attrs)
+        
+        if "PowerTreeHook"  not in attrs:
+            raise TypeError(f"PowerTreeHook not defined in {name} class. Please add PowerTreeHook or refer to documentation.")
+        else:
+            # Decorate with staticmethod. Not an instance method
+            attrs["PowerTreeHook"]=staticmethod(attrs["PowerTreeHook"])
+
+        power_states = {}
+        for k,v in attrs.items():
+            if isinstance(v, PState):
+                power_states[k] = v
+        if(len(power_states) == 0):
+            raise TypeError(f"{name} is missing PState(s). Please define at least 1. Refer to documentation.")                
+        cls = type.__new__(mcs, name, bases, attrs)
+
+        cls.__power_states = power_states
+        
+        
+        # Attach Callback, and check all PowerState objects for consistency. TODO: Refactor by directly updating __call__ in PState.
+        # TODO: Refactor pi into dictionary loop
+        ukeys = []
+        pi = 0
+        pstate_keys = []
+        for k,v in power_states.items():
+            pstate = getattr(cls, k)
+            if(pi == 0):
+                pstate_keys = dir(pstate)
+            else:
+                symDiff = set(pstate_keys).symmetric_difference(set(dir(pstate)))
+                ukeys.extend(list(symDiff))
+            
+            powerTree = partial(cls.PowerTreeHook,pstate)
+            # Sets comment for return value 
+            powerTree = tagPState(pstate)(powerTree)
+            setattr(pstate, "callback", powerTree)
+            
+            pi+=1
+        
+        if(len(set(ukeys)) > 0):
+            raise TypeError("Inconsistent entries for PowerState objects. Please check each have the same types of arguments.\n" \
+                + "%s's PowerState objects have the following mismatches: %s" % (name, ukeys))
+        
+        # Check if PowerTreeHook's args don't mangle PowerState attributes
+        _uVal = set(inspect.getfullargspec(cls.PowerTreeHook).args).intersection(set(pstate_keys))
+        if(len(_uVal) > 0):
+            raise TypeError("Arguments in PowerTreeHook intersect with PowerState objects. Please rename %s in PowerStateHook." % _uVal)
+        return cls
+                
+    def __iter__(cls) -> Iterable[PNode]:
+        # Get PState objects from class
+        pstate = []
+        for key in dir(cls):
+            if(isinstance(getattr(cls,key), PState)):
+                pstate.append(getattr(cls,key))
+        return (item for item in pstate)
+
+class PowerTreeDevice(metaclass=DeviceMeta):
+    pass

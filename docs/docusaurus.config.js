@@ -68,6 +68,11 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      docs: {
+        sidebar: {
+          hideable: true,
+        },
+      },
       navbar: {
         title: "spycey (alpha version, under development)",
         // logo: {
@@ -139,6 +144,7 @@ const config = {
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
+
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,

@@ -43,6 +43,7 @@ class SMPS(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self, outputVoltage=1, efficiency=1):
         # name = hexID()
+        self.voltage = outputVoltage
         name = "SMPS_%sV_" % outputVoltage + hexID()
         self.type = NodeType.XFMR
         self.label = "SMPS"
@@ -56,6 +57,22 @@ class SMPS(SubCircuit):
         self.B('VI','n5', 0, voltage_expression="V(n1)")
         self.B('II','n6', 0, voltage_expression="I(V2)")
         self.B('EF','n7', 0, voltage_expression=f"{efficiency}")
+
+# Passthrough, hacked togethor using LDO model as base. May change in future
+class PT(SubCircuit):
+    __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
+    def __init__(self):
+        name = "PT_" + hexID()
+        self.type = NodeType.XFMR
+        self.label = "Passthrough"
+        SubCircuit.__init__(self, name, *self.__nodes__)
+        self.B("1",  "n1", 0, current_expression="-I(B2)")
+        self.B('2', "n2", 0, voltage_expression="V(n1)")
+        self.B('VO','n3', 0, voltage_expression="V(n2)")
+        self.B('IO','n4', 0, voltage_expression="-I(B2)")
+        self.B('VI','n5', 0, voltage_expression="V(n1)")
+        self.B('II','n6', 0, voltage_expression="I(B1)")
+        self.B('EF','n7', 0, voltage_expression="V(n2)/V(n1)")
 
 class UNREG(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
@@ -77,6 +94,7 @@ class UNREG(SubCircuit):
 class INPUT(SubCircuit):
     __nodes__ = ('n1', 'n3', 'n4')
     def __init__(self, outputVoltage=1):
+        self.voltage = outputVoltage
         name = hexID()
         name = "INPUT_%sV_" % outputVoltage + hexID()
         self.type = NodeType.INPUT
