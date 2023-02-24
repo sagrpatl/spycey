@@ -6,9 +6,10 @@ import PySpice.Logging.Logging as Logging
 logger = Logging.setup_logging()
 from anytree import RenderTree, NodeMixin
 from anytree.exporter import DotExporter
-from enum import Enum
+from enum import Enum, auto
 import copy
 from engineering_notation import EngNumber
+import math
 
 from PySpice.Spice.Netlist import Circuit 
 from PySpice.Unit import *
@@ -18,8 +19,11 @@ from typing import Type, Iterable
 import inspect
 from functools import partial
 
+class paramStyle(Enum):
+    DC = auto()
+    AC3PH = auto()
 class PNode(NodeMixin):
-    def __init__(self, name, parent=None, children=None, model=None, multiplier=1, comment="", hideChildren=False, isModule=False):
+    def __init__(self, name, parent=None, children=None, model=None, multiplier=1, comment="", hideChildren=False, isModule=False, paramStyle = paramStyle.DC):
         super(PNode, self).__init__()
         self.name = name
         self.id = hexID()
@@ -33,6 +37,7 @@ class PNode(NodeMixin):
         self.multiplier = multiplier
         self.isModule = isModule
         self.hideChildren=hideChildren
+        self.paramStyle = paramStyle
         if children:
              self.children = children
         if model:
@@ -71,25 +76,41 @@ class PNode(NodeMixin):
     def RES(cls, name, resistance, parent=None, multiplier=1, comment=""):
         return cls(name, model=models.Res(resistance), parent=parent, comment=comment, multiplier=multiplier)
     @classmethod
-    def IN_DC(cls, name, voltage, parent=None, comment=""):
-        return cls(name, model=models.INPUT(voltage), parent=parent, comment=comment)
+    def IN_DC(cls, name, voltage, parent=None, comment="", efficiency=1):
+        return cls(name, model=models.INPUT(voltage, efficiency), parent=parent, comment=comment)
     @classmethod
-    def UNREG(cls, name, ratio, efficiency=1, parent=None, comment=""):
-        return cls(name, model=models.UNREG(ratio, efficiency), parent=parent, comment=comment)
+    def IN_3PH(cls, name, voltage, pf=1, parent=None, comment=""):
+        return cls(name, model=models.INPUT(voltage), parent=parent, comment=comment, paramStyle=paramStyle.AC3PH)
+        # return cls(name, model=models.INPUT_3PH(voltage,pf), parent=parent, comment=comment)
+    @classmethod
+    def PASSTHRU(cls, name, parent=None, comment="", multiplier=1):
+        return cls(name, model=models.PT(), parent=parent, multiplier=multiplier, comment=comment)
+    @classmethod
+    def UNREG(cls, name, ratio, efficiency=1, parent=None, comment="", multiplier=1):
+        return cls(name, model=models.UNREG(ratio, efficiency), parent=parent, comment=comment, multiplier=multiplier)
     @classmethod
     def MODULE(cls, name, multiplier=1, comment="", parent=None):
         return cls(name, parent=parent, multiplier=multiplier, comment=comment, isModule=True)
-    def toModule(self, name, parent=None, comment="", multipler=1, hideChildren=True):
-        self.isModule = True
-        self.multiplier = multipler
-        self.hideChildren=hideChildren
+    def toModule(self, name, parent=None, comment="", multiplier=1, hideChildren=True):
+        
+        # self.isModule = True
+        # self.multiplier = multiplier
+        # self.hideChildren=hideChildren
         if comment == "":
-            if(self.injectedName is not None):
-                # self.comment =  self.injectedName
-                self.comment = self.injectedName
-        self.name = name
-        self.parent=parent
-        return self
+            try:
+                if(self.injectedName is not None):
+                    # self.comment =  self.injectedName
+                    self.comment = self.injectedName
+            except:
+                pass
+        moduleNode = self.PASSTHRU(name, multiplier=multiplier, parent=parent)
+        # moduleNode.children = self.children
+        moduleNode.isModule = True
+        moduleNode.multiplier = multiplier
+        moduleNode.hideChildren = hideChildren
+        moduleNode.name = name
+        self.parent = moduleNode
+        return moduleNode
     def Power(self):
         return self.VO * self.IO
     def PowerIn(self):
@@ -144,7 +165,7 @@ def _Netlist(node):
                 elif node.model.type == NodeType.SINK:
                     mycir.X(node.id, node.model.name, subcon, "VI-" + node.id, "II-" + node.id)
                 elif node.model.type == NodeType.INPUT:
-                    mycir.X(node.id, node.model.name, node.id, "VO-" + node.id, "IO-" + node.id)
+                    mycir.X(node.id, node.model.name, node.id, "VO-" + node.id, "IO-" + node.id, "EF-" + node.id)
         except Exception as e:
             print(e)
             print(node.name)
@@ -193,6 +214,7 @@ def _Solve(node : PNode):
             if(node.model.type == NodeType.INPUT):
                 node.IO = float(output["io-" + node.id]) 
                 node.VO = float(output["vo-" + node.id])
+                node.EF = float(output["ef-" + node.id])
         except Exception as e:
                 print(e)
                 print("Couldn't find parameter")
@@ -207,13 +229,36 @@ def nodeattrfunc(node: PNode):
         style += "shape=box;"
     return style
 
+
+
+def nodeVI(V,I,style=paramStyle.DC):
+    if(style==paramStyle.AC3PH):
+        P = V * I
+        Iph = P / (math.sqrt(3) * V)
+        output = "\n%sVφ/%sAφ → %sW" % (EngNumber(V), EngNumber(Iph), EngNumber(P))
+        return output
+    else: # DC Case
+        P = V * I
+        output = "\n%sV/%sA → %sW" % (EngNumber(V), EngNumber(I), EngNumber(P))
+        return output
+        
+def nodeEffLoss(V,I,EF):
+    if(EF < 1):
+        P = V * I
+        L = P  /EF * (1 - EF)
+        output = "\nη=%.2f  ℓ=%sW" % (EF, EngNumber(L))
+        return output
+    else:
+        return ""
+
+
+
 def nodenamefunc(node): 
     output = ""
     output += "%s" % node.name
     if(node.multiplier > 1):
         output += " [x%d]" % node.multiplier
-        
-    
+
     if(node.isModule):
         V = node.VO
         I = node.IO 
@@ -223,36 +268,41 @@ def nodenamefunc(node):
         # output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
     else:
         if(node.model.type == NodeType.XFMR):
-            V = node.VO
-            I = node.IO 
-            P = V * I
-            L = P  / node.EF * (1 - node.EF)
-            output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
-            output += "\nη=%.2f  ℓ=%sW" % (node.EF, EngNumber(L))
+            output += "\n%s" % (node.model.label)
+            output += nodeVI(node.VO, node.IO, style=node.paramStyle)
+            output += nodeEffLoss(node.VO, node.IO, node.EF)
         elif(node.model.type == NodeType.SINK):
-            V = node.VI
-            I = node.II 
-            P = V * I
-            output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+            output += "\n%s" % (node.model.label)
+            output += nodeVI(node.VI, node.II, style=node.paramStyle)
         elif(node.model.type == NodeType.INPUT):
-            V = node.VO
-            I = node.IO 
-            P = V * I
-            output += "\n%s\n%sV/%sA → %sW" % (node.model.label, EngNumber(V), EngNumber(I), EngNumber(P))
+            output += "\n%s" % (node.model.label)
+            output += nodeVI(node.VO, node.IO, style=node.paramStyle)
+            output += nodeEffLoss(node.VO, node.IO, node.EF)
         # else:
             # output += "%s" % (node.name)
     if(node.comment != ""):
         output += "\n%s" % node.comment
     return output
+
+def edgeCurrent(node, child):
+    if(node.paramStyle == paramStyle.AC3PH):
+        P = child.VI * child.II
+        Iph = P / (math.sqrt(3) * child.VI)
+        return  str(EngNumber(Iph)) + "Aφ"
+    else: # DC default case
+        return str(EngNumber(child.II)) + "A"
+
 def edgeattrfunc(node, child):
     if child.multiplier > 1:
-        return 'label="%sA [x%d]"' % (EngNumber(child.II), child.multiplier)
+        return 'label="%s [x%d]"' % (edgeCurrent(node,child), child.multiplier)
+        # return 'label="%sA [x%d]"' % (EngNumber(child.II), child.multiplier)
     
-    return 'label="%sA"' % (EngNumber(child.II))
+    return 'label="%s"' % (edgeCurrent(node,child))
 
 class PowerDotExporter(DotExporter):
     
     def __init__(self, node):
+        node.Solve()
         # Copy tree to perform any destructive actions (ex. pruning)
         _node = copy.deepcopy(node)
         __node : PNode
@@ -261,6 +311,12 @@ class PowerDotExporter(DotExporter):
                 __node.children = []
 
         super(PowerDotExporter, self).__init__(_node,  graph="digraph",nodenamefunc=nodenamefunc, nodeattrfunc=nodeattrfunc, edgeattrfunc=edgeattrfunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"])
+
+def PowerDotOutput(node):
+    src = ""
+    for line in PowerDotExporter(node):
+        src += line
+    return src
 
 def tagPState(input):
     def setPState(func):

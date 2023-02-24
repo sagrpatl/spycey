@@ -2,10 +2,15 @@ from PySpice.Spice.Netlist import SubCircuit
 from engineering_notation import EngNumber
 from .helper import *
 
+def valueParse(value, unit):
+    stringValue = "%3.3f" % value
+    stringValue = stringValue.replace(".", unit)
+    return stringValue
+
 class LDO(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self, outputVoltage=1):
-        name = "LDO_%sV_" % outputVoltage + hexID()
+        name = "LDO_%s_" % valueParse(outputVoltage,"V") + hexID()
         self.type = NodeType.XFMR
         self.label = "LDO"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -16,12 +21,12 @@ class LDO(SubCircuit):
         self.B('VI','n5', 0, voltage_expression="V(n1)")
         self.B('II','n6', 0, voltage_expression="I(B1)")
         self.B('EF','n7', 0, voltage_expression="V(n2)/V(n1)")
+        
 
 class Multiplier(SubCircuit):
     __nodes__ = ('n1', 'n2')
     def __init__(self, multiplier=1):
         name = "MULTI_%sX_" % multiplier + hexID()
-        # name = hexID()
         self.type = NodeType.XFMR
         self.label = "Multiplier"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -42,9 +47,8 @@ class Multiplier(SubCircuit):
 class SMPS(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self, outputVoltage=1, efficiency=1):
-        # name = hexID()
         self.voltage = outputVoltage
-        name = "SMPS_%sV_" % outputVoltage + hexID()
+        name = "SMPS_%s_" % valueParse(outputVoltage,"V") + hexID()
         self.type = NodeType.XFMR
         self.label = "SMPS"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -92,23 +96,24 @@ class UNREG(SubCircuit):
         self.B('EF','n7', 0, voltage_expression=f"{efficiency}")
 
 class INPUT(SubCircuit):
-    __nodes__ = ('n1', 'n3', 'n4')
-    def __init__(self, outputVoltage=1):
+    __nodes__ = ('n1', 'n3', 'n4','n5')
+    def __init__(self, outputVoltage=1, efficiency=1):
         self.voltage = outputVoltage
-        name = hexID()
-        name = "INPUT_%sV_" % outputVoltage + hexID()
+        name = "INPUT_%sV_" % valueParse(outputVoltage,"V") + hexID()
         self.type = NodeType.INPUT
         self.label = "Input"
         SubCircuit.__init__(self, name, *self.__nodes__)
         self.V('1', "n1", 0, outputVoltage)
         self.B('VO','n3', 0, voltage_expression="V(n1)")
         self.B('IO','n4', 0, voltage_expression="-I(V1)")
+        # self.B('1','n1', 0, current_expression="-I(V1)") # Models loss
+        self.B('EF', 'n5', 0, voltage_expression=f"{efficiency}")
+
 
 class Res(SubCircuit):
     __nodes__ = ('n1', 'n5', 'n6')
     def __init__(self, resistance=1):
-        # name = hexID()
-        name = "RES_%sOHM_" % resistance + hexID()
+        name = "RES_%sOHM_" % valueParse(resistance,"R") + hexID()
         self.type = NodeType.SINK
         self.label = "Resistor %sΩ" % (EngNumber(resistance))
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -119,7 +124,7 @@ class Res(SubCircuit):
 class CP(SubCircuit):
     __nodes__ = ('n1', 'n5', 'n6')
     def __init__(self, power=1):
-        name = "LOAD_CP_%sW_" % power + hexID()
+        name = "LOAD_CP_%s_" % valueParse(power,"W") + hexID()
         self.type = NodeType.SINK
         self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -130,8 +135,7 @@ class CP(SubCircuit):
 class CC(SubCircuit):
     __nodes__ = ('n1', 'n5', 'n6')
     def __init__(self, current=1):
-        name = hexID()
-        name = "LOAD_CC_%sA_" % current + hexID()
+        name = "LOAD_CC_%s_" % valueParse(current,"A") + hexID()
         self.type = NodeType.SINK
         self.label = "Constant Power"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -142,7 +146,6 @@ class CC(SubCircuit):
 class CCVS(SubCircuit):
     __nodes__ = ('n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7')
     def __init__(self):
-        name = hexID()
         self.type = NodeType.XFMR
         self.label = "CCVS Example"
         SubCircuit.__init__(self, name, *self.__nodes__)
@@ -157,3 +160,16 @@ class CCVS(SubCircuit):
         self.B('VI','n5', 0, voltage_expression="V(n1)")
         self.B('II','n6', 0, voltage_expression="-I(V2)")
         self.B('EF','n7', 0, voltage_expression=f"{efficiency}")    
+
+# Experimental AC
+class INPUT_3PH(SubCircuit):
+    __nodes__ = ('n1', 'n3', 'n4')
+    def __init__(self, outputVoltage=1, pf=1):
+        self.voltage = outputVoltage
+        name = "INPUT_%sV_" % valueParse(outputVoltage,"V") + hexID()
+        self.type = NodeType.INPUT
+        self.label = "Input 3ph"
+        SubCircuit.__init__(self, name, *self.__nodes__)
+        self.V('1', "n1", 0, outputVoltage)
+        self.B('VO','n3', 0, voltage_expression="V(n1)")
+        self.B('IO','n4', 0, voltage_expression=f"-I(V1)/(sqrt(3)*{pf})")
