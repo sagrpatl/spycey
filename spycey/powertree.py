@@ -301,7 +301,7 @@ def edgeattrfunc(node, child):
 
 class PowerDotExporter(DotExporter):
     
-    def __init__(self, node):
+    def __init__(self, node, powerOnly=False):
         node.Solve()
         # Copy tree to perform any destructive actions (ex. pruning)
         _node = copy.deepcopy(node)
@@ -309,6 +309,9 @@ class PowerDotExporter(DotExporter):
         for pre, fill, __node in RenderTree(_node):
             if __node.hideChildren:
                 __node.children = []
+            if powerOnly:
+                if __node.model.type == NodeType.SINK:
+                    __node.parent = None
 
         super(PowerDotExporter, self).__init__(_node,  graph="digraph",nodenamefunc=nodenamefunc, nodeattrfunc=nodeattrfunc, edgeattrfunc=edgeattrfunc, options=[f"rankdir=LR; splines=true; labelloc=t; fontsize=72; nodesep=0.25; ranksep=\"1.2 equally\"; fontsize=48;"])
 
